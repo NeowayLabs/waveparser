@@ -52,13 +52,6 @@ func (hdr *WavHeader) String() string {
 	return strings.Join(strs, "\n")
 }
 
-func abortonerr(err error, op string) {
-	if err != nil {
-		fmt.Printf("%s: fatal error: %s\n", op, err)
-		os.Exit(1)
-	}
-}
-
 func parseRIFFHeader(r io.Reader) (*riffHeader, error) {
 	var hdr riffHeader
 	err := binary.Read(r, binary.LittleEndian, &hdr)
@@ -142,24 +135,30 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 	}, nil
 }
 
-func LoadAudio(audiofile string) (*WavHeader, []int16) {
+func LoadAudio(audiofile string) (*WavHeader, []int16, error) {
 	audio := []int16{}
 	f, err := os.Open(audiofile)
-	abortonerr(err, "opening audio file")
+	if err != nil {
+		return nil, nil, err
+	}
+
 	defer f.Close()
 
 	hdr, err := parseHeader(f)
-	abortonerr(err, "parsing WAV header")
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// header already skipped
-
 	data, err := ioutil.ReadAll(f)
-	abortonerr(err, "opening audio file")
+	if err != nil {
+		return nil, nil, err
+	}
 
 	for i := 0; i < len(data)-1; i += 2 {
 		sample := binary.LittleEndian.Uint16(data[i : i+2])
 		audio = append(audio, int16(sample))
 	}
 
-	return hdr, audio
+	return hdr, audio, nil
 }
