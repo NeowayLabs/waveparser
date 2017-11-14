@@ -36,7 +36,7 @@ func testParseWAV(t *testing.T, filename string) {
 	hdr, hdrerr := parseHeader(r)
 
 	ext := filepath.Ext(filename)
-	noext := string(filename[0 : len(filename)-len(ext)])
+	noext := strings.TrimSuffix(filename, ext)
 	expectedHdrFile := noext + ".hdr.expected"
 	errFile := noext + ".err"
 
