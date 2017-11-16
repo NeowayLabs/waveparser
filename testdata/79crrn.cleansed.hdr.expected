@@ -1,0 +1,18 @@
+{
+    "RIFFHeader": {
+        "Ident": "RIFF",
+        "ChunkSize": 66854,
+        "FileType": "WAVE"
+    },
+    "RIFFChunkFmt": {
+        "LengthOfHeader": 16,
+        "AudioFormat": 1,
+        "NumChannels": 1,
+        "SampleRate": 8000,
+        "BytesPerSec": 16000,
+        "BytesPerBloc": 2,
+        "BitsPerSample": 16
+    },
+    "FirstSamplePos": 78,
+    "DataBlockSize": 66784
+}

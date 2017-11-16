@@ -8,6 +8,6 @@ Parses data from audio files
 import "github.com/NeowayLabs/waveparser"
 
 func main() {
-    header, data = waveparser.LoadAudio("/path/to/audio.wav")
+    header, data, err := waveparser.LoadAudio("/path/to/audio.wav")
 }
 ```
