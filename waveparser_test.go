@@ -17,7 +17,7 @@ type wavExpectedHeader struct {
 		ChunkSize uint32
 		FileType  string
 	}
-	RIFFChunkFmt   riffChunkFmt
+	RIFFChunkFmt   RiffChunkFmt
 	FirstSamplePos uint32
 	DataBlockSize  uint32
 }
@@ -60,7 +60,7 @@ func testParseWAV(t *testing.T, filename string) {
 		checkerr(t, err)
 
 		expected := WavHeader{
-			RIFFHdr: riffHeader{
+			RIFFHdr: RiffHeader{
 				ChunkSize: expectedHdr.RIFFHeader.ChunkSize,
 			},
 			RIFFChunkFmt:   expectedHdr.RIFFChunkFmt,

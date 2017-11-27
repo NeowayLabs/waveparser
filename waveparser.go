@@ -11,25 +11,9 @@ import (
 )
 
 type (
-	riffHeader struct {
-		Ident     [4]byte // RIFF
-		ChunkSize uint32
-		FileType  [4]byte // WAVE
-	}
-
-	riffChunkFmt struct {
-		LengthOfHeader uint32
-		AudioFormat    uint16
-		NumChannels    uint16
-		SampleRate     uint32
-		BytesPerSec    uint32
-		BytesPerBloc   uint16
-		BitsPerSample  uint16
-	}
-
 	WavHeader struct {
-		RIFFHdr      riffHeader
-		RIFFChunkFmt riffChunkFmt
+		RIFFHdr      RiffHeader
+		RIFFChunkFmt RiffChunkFmt
 
 		FirstSamplePos uint32 // position of start of sample data
 		DataBlockSize  uint32 // size of sample block (PCM data)
@@ -38,6 +22,22 @@ type (
 	Wav struct {
 		Header *WavHeader
 		Data   []byte
+	}
+
+	RiffHeader struct {
+		Ident     [4]byte // RIFF
+		ChunkSize uint32
+		FileType  [4]byte // WAVE
+	}
+
+	RiffChunkFmt struct {
+		LengthOfHeader uint32
+		AudioFormat    uint16
+		NumChannels    uint16
+		SampleRate     uint32
+		BytesPerSec    uint32
+		BytesPerBloc   uint16
+		BitsPerSample  uint16
 	}
 )
 
@@ -67,9 +67,10 @@ func Load(audiofile string) (*Wav, error) {
 
 func (w *Wav) Int16LESamples() ([]int16, error) {
 	// TODO: validate using header
+	const typesize = 2
 	audio := []int16{}
-	for i := 0; i < len(w.Data)-1; i += 2 {
-		sample := int16(binary.LittleEndian.Uint16(w.Data[i : i+2]))
+	for i := 0; i < len(w.Data)-1; i += typesize {
+		sample := int16(binary.LittleEndian.Uint16(w.Data[i : i+typesize]))
 		audio = append(audio, sample)
 	}
 	return audio, nil
@@ -77,8 +78,6 @@ func (w *Wav) Int16LESamples() ([]int16, error) {
 
 func (w *Wav) Float32LESamples() ([]float32, error) {
 	// TODO: validate using header
-	const typesize = 4
-
 	audio := []float32{}
 	reader := bytes.NewBuffer(w.Data)
 	var err error
@@ -115,8 +114,8 @@ func (hdr *WavHeader) String() string {
 	return strings.Join(strs, "\n")
 }
 
-func parseRIFFHeader(r io.Reader) (*riffHeader, error) {
-	var hdr riffHeader
+func parseRIFFHeader(r io.Reader) (*RiffHeader, error) {
+	var hdr RiffHeader
 	err := binary.Read(r, binary.LittleEndian, &hdr)
 	if err != nil {
 		return nil, err
@@ -135,7 +134,7 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 
 	// FMT chunk
 	var chunk [4]byte
-	var chunkFmt riffChunkFmt
+	var chunkFmt RiffChunkFmt
 
 	err = binary.Read(r, binary.LittleEndian, &chunk)
 	if err != nil {
