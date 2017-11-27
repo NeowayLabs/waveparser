@@ -1,6 +1,8 @@
 package waveparser
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,7 +24,7 @@ type wavExpectedHeader struct {
 	DataBlockSize  uint32
 }
 
-func checkerr(t *testing.T, err error) {
+func assertNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +33,7 @@ func checkerr(t *testing.T, err error) {
 
 func testParseWAV(t *testing.T, filename string) {
 	r, err := os.Open(filename)
-	checkerr(t, err)
+	assertNoError(t, err)
 
 	hdr, hdrerr := parseHeader(r)
 
@@ -57,7 +59,7 @@ func testParseWAV(t *testing.T, filename string) {
 	if err == nil {
 		var expectedHdr wavExpectedHeader
 		err = json.Unmarshal(expectedHdrContent, &expectedHdr)
-		checkerr(t, err)
+		assertNoError(t, err)
 
 		expected := WavHeader{
 			RIFFHdr: RiffHeader{
@@ -87,9 +89,10 @@ func testParseWAV(t *testing.T, filename string) {
 
 	t.Fatalf("no error file nor expected file found for input: %s", filename)
 }
-func TestParseWAV(t *testing.T) {
+
+func TestParseWAVHeaders(t *testing.T) {
 	files, err := ioutil.ReadDir("testdata")
-	checkerr(t, err)
+	assertNoError(t, err)
 
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), "wav") {
@@ -97,6 +100,37 @@ func TestParseWAV(t *testing.T) {
 			t.Run(fmt.Sprintf("header-%s", fname), func(t *testing.T) {
 				testParseWAV(t, filepath.Join("testdata", fname))
 			})
+		}
+	}
+}
+
+func TestSignedInt16LittleEndianSamples(t *testing.T) {
+
+	wav, err := Load("testdata/audios/sint16le.wav")
+	assertNoError(t, err)
+
+	samples, err := wav.Int16LESamples()
+	assertNoError(t, err)
+
+	gotbuf := &bytes.Buffer{}
+	err = binary.Write(gotbuf, binary.LittleEndian, samples)
+	assertNoError(t, err)
+
+	expected, err := ioutil.ReadFile("testdata/audios/sint16le.raw")
+	assertNoError(t, err)
+
+	assertBytesEqual(t, expected, gotbuf.Bytes())
+}
+
+func assertBytesEqual(t *testing.T, expected []byte, got []byte) {
+	if len(expected) != len(got) {
+		t.Fatalf("expected len[%d] != got len[%d]", len(expected), len(got))
+	}
+
+	for i, expectedByte := range expected {
+		gotByte := got[i]
+		if expectedByte != gotByte {
+			t.Fatalf("got wrong byte at index[%d] expected[%d] got[%d]", i, expectedByte, gotByte)
 		}
 	}
 }
