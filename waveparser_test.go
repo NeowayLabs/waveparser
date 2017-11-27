@@ -122,6 +122,24 @@ func TestSignedInt16LittleEndianSamples(t *testing.T) {
 	assertBytesEqual(t, expected, gotbuf.Bytes())
 }
 
+func TestFloat32LittleEndianSamples(t *testing.T) {
+
+	wav, err := Load("testdata/audios/float32le.wav")
+	assertNoError(t, err)
+
+	samples, err := wav.Float32LESamples()
+	assertNoError(t, err)
+
+	gotbuf := &bytes.Buffer{}
+	err = binary.Write(gotbuf, binary.LittleEndian, samples)
+	assertNoError(t, err)
+
+	expected, err := ioutil.ReadFile("testdata/audios/float32le.raw")
+	assertNoError(t, err)
+
+	assertBytesEqual(t, expected, gotbuf.Bytes())
+}
+
 func assertBytesEqual(t *testing.T, expected []byte, got []byte) {
 	if len(expected) != len(got) {
 		t.Fatalf("expected len[%d] != got len[%d]", len(expected), len(got))

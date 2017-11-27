@@ -41,6 +41,14 @@ type (
 	}
 )
 
+const (
+	WaveFormatPCM        = 0x0001
+	WaveFormatIEEEFloat  = 0x0003
+	WaveFormatALAW       = 0x0006
+	WaveFormatMULAW      = 0x0007
+	WaveFormatExtensible = 0xFFFE
+)
+
 func Load(audiofile string) (*Wav, error) {
 	f, err := os.Open(audiofile)
 	if err != nil {
@@ -126,6 +134,21 @@ func parseRIFFHeader(r io.Reader) (*RiffHeader, error) {
 	return &hdr, nil
 }
 
+func isValidWavFormat(fmt uint16) bool {
+	for _, validFormat := range []uint16{
+		WaveFormatMULAW,
+		WaveFormatALAW,
+		WaveFormatIEEEFloat,
+		WaveFormatPCM,
+	} {
+		if fmt == validFormat {
+			return true
+		}
+	}
+
+	return false
+}
+
 func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 	riffhdr, err := parseRIFFHeader(r)
 	if err != nil {
@@ -149,7 +172,7 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 		return nil, err
 	}
 
-	if chunkFmt.AudioFormat != 1 {
+	if !isValidWavFormat(chunkFmt.AudioFormat) {
 		return nil, fmt.Errorf("Isn't an audio format: format[%d]", chunkFmt.AudioFormat)
 	}
 
