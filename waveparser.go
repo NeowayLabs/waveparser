@@ -1,6 +1,7 @@
 package waveparser
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -10,13 +11,26 @@ import (
 )
 
 type (
-	riffHeader struct {
+	WavHeader struct {
+		RIFFHdr      RiffHeader
+		RIFFChunkFmt RiffChunkFmt
+
+		FirstSamplePos uint32 // position of start of sample data
+		DataBlockSize  uint32 // size of sample block (PCM data)
+	}
+
+	Wav struct {
+		Header *WavHeader
+		Data   []byte
+	}
+
+	RiffHeader struct {
 		Ident     [4]byte // RIFF
 		ChunkSize uint32
 		FileType  [4]byte // WAVE
 	}
 
-	riffChunkFmt struct {
+	RiffChunkFmt struct {
 		LengthOfHeader uint32
 		AudioFormat    uint16
 		NumChannels    uint16
@@ -25,15 +39,71 @@ type (
 		BytesPerBloc   uint16
 		BitsPerSample  uint16
 	}
-
-	WavHeader struct {
-		RIFFHdr      riffHeader
-		RIFFChunkFmt riffChunkFmt
-
-		FirstSamplePos uint32 // position of start of sample data
-		DataBlockSize  uint32 // size of sample block (PCM data)
-	}
 )
+
+const (
+	WaveFormatPCM        = 0x0001
+	WaveFormatIEEEFloat  = 0x0003
+	WaveFormatALAW       = 0x0006
+	WaveFormatMULAW      = 0x0007
+	WaveFormatExtensible = 0xFFFE
+)
+
+func Load(audiofile string) (*Wav, error) {
+	f, err := os.Open(audiofile)
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	hdr, err := parseHeader(f)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Wav{
+		Header: hdr,
+		Data:   data,
+	}, nil
+}
+
+func (w *Wav) Int16LESamples() ([]int16, error) {
+	// TODO: validate using header
+	const typesize = 2
+	audio := []int16{}
+	for i := 0; i < len(w.Data)-1; i += typesize {
+		sample := int16(binary.LittleEndian.Uint16(w.Data[i : i+typesize]))
+		audio = append(audio, sample)
+	}
+	return audio, nil
+}
+
+func (w *Wav) Float32LESamples() ([]float32, error) {
+	// TODO: validate using header
+	audio := []float32{}
+	reader := bytes.NewBuffer(w.Data)
+	var err error
+
+	for err == nil {
+		var sample float32
+		err = binary.Read(reader, binary.LittleEndian, &sample)
+		if err == nil {
+			audio = append(audio, sample)
+		}
+	}
+
+	if err != io.EOF {
+		return nil, fmt.Errorf("error[%s] loading audio as float32 samples", err)
+	}
+
+	return audio, nil
+}
 
 func (hdr *WavHeader) String() string {
 	strs := []string{
@@ -52,8 +122,8 @@ func (hdr *WavHeader) String() string {
 	return strings.Join(strs, "\n")
 }
 
-func parseRIFFHeader(r io.Reader) (*riffHeader, error) {
-	var hdr riffHeader
+func parseRIFFHeader(r io.Reader) (*RiffHeader, error) {
+	var hdr RiffHeader
 	err := binary.Read(r, binary.LittleEndian, &hdr)
 	if err != nil {
 		return nil, err
@@ -64,6 +134,21 @@ func parseRIFFHeader(r io.Reader) (*riffHeader, error) {
 	return &hdr, nil
 }
 
+func isValidWavFormat(fmt uint16) bool {
+	for _, validFormat := range []uint16{
+		WaveFormatMULAW,
+		WaveFormatALAW,
+		WaveFormatIEEEFloat,
+		WaveFormatPCM,
+	} {
+		if fmt == validFormat {
+			return true
+		}
+	}
+
+	return false
+}
+
 func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 	riffhdr, err := parseRIFFHeader(r)
 	if err != nil {
@@ -72,7 +157,7 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 
 	// FMT chunk
 	var chunk [4]byte
-	var chunkFmt riffChunkFmt
+	var chunkFmt RiffChunkFmt
 
 	err = binary.Read(r, binary.LittleEndian, &chunk)
 	if err != nil {
@@ -87,7 +172,7 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 		return nil, err
 	}
 
-	if chunkFmt.AudioFormat != 1 {
+	if !isValidWavFormat(chunkFmt.AudioFormat) {
 		return nil, fmt.Errorf("Isn't an audio format: format[%d]", chunkFmt.AudioFormat)
 	}
 
@@ -133,32 +218,4 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 		FirstSamplePos: uint32(pos),
 		DataBlockSize:  uint32(chunkSize),
 	}, nil
-}
-
-func LoadAudio(audiofile string) (*WavHeader, []int16, error) {
-	audio := []int16{}
-	f, err := os.Open(audiofile)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	defer f.Close()
-
-	hdr, err := parseHeader(f)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// header already skipped
-	data, err := ioutil.ReadAll(f)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for i := 0; i < len(data)-1; i += 2 {
-		sample := binary.LittleEndian.Uint16(data[i : i+2])
-		audio = append(audio, int16(sample))
-	}
-
-	return hdr, audio, nil
 }
