@@ -106,38 +106,44 @@ func TestParseWAVHeaders(t *testing.T) {
 
 func TestSignedInt16LittleEndianSamples(t *testing.T) {
 
-	wav, err := Load("testdata/audios/sint16le.wav")
-	assertNoError(t, err)
+	testSamplesRetrieve(t, "sint16le", func(wav *Wav) *bytes.Buffer {
+		samples, err := wav.Int16LESamples()
+		assertNoError(t, err)
 
-	samples, err := wav.Int16LESamples()
-	assertNoError(t, err)
+		gotbuf := &bytes.Buffer{}
+		err = binary.Write(gotbuf, binary.LittleEndian, samples)
+		assertNoError(t, err)
 
-	gotbuf := &bytes.Buffer{}
-	err = binary.Write(gotbuf, binary.LittleEndian, samples)
-	assertNoError(t, err)
-
-	expected, err := ioutil.ReadFile("testdata/audios/sint16le.raw")
-	assertNoError(t, err)
-
-	assertBytesEqual(t, expected, gotbuf.Bytes())
+		return gotbuf
+	})
 }
 
 func TestFloat32LittleEndianSamples(t *testing.T) {
 
-	wav, err := Load("testdata/audios/float32le.wav")
+	testSamplesRetrieve(t, "float32le", func(wav *Wav) *bytes.Buffer {
+		samples, err := wav.Float32LESamples()
+		assertNoError(t, err)
+
+		gotbuf := &bytes.Buffer{}
+		err = binary.Write(gotbuf, binary.LittleEndian, samples)
+		assertNoError(t, err)
+		return gotbuf
+	})
+}
+
+type SamplesRetriever func(*Wav) *bytes.Buffer
+
+func testSamplesRetrieve(t *testing.T, audioname string, retrieveSamples SamplesRetriever) {
+
+	wav, err := Load(fmt.Sprintf("testdata/audios/%s.wav", audioname))
 	assertNoError(t, err)
 
-	samples, err := wav.Float32LESamples()
+	samples := retrieveSamples(wav)
+
+	expected, err := ioutil.ReadFile(fmt.Sprintf("testdata/audios/%s.raw", audioname))
 	assertNoError(t, err)
 
-	gotbuf := &bytes.Buffer{}
-	err = binary.Write(gotbuf, binary.LittleEndian, samples)
-	assertNoError(t, err)
-
-	expected, err := ioutil.ReadFile("testdata/audios/float32le.raw")
-	assertNoError(t, err)
-
-	assertBytesEqual(t, expected, gotbuf.Bytes())
+	assertBytesEqual(t, expected, samples.Bytes())
 }
 
 func assertBytesEqual(t *testing.T, expected []byte, got []byte) {
