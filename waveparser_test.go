@@ -116,8 +116,6 @@ func TestFloatSamplesMustBeNormalized(t *testing.T) {
 
 func testParseWAV(t *testing.T, filename string) {
 
-	t.Skip()
-
 	r, err := os.Open(filename)
 	assertNoError(t, err)
 
@@ -167,8 +165,8 @@ func testParseWAV(t *testing.T, filename string) {
 		expected.RIFFHdr.FileType[2] = expectedHdr.RIFFHeader.FileType[2]
 		expected.RIFFHdr.FileType[3] = expectedHdr.RIFFHeader.FileType[3]
 
-		if !reflect.DeepEqual(hdr, &expected) {
-			t.Fatalf("WAV header differs: %#v != %#v", hdr, &expected)
+		if !reflect.DeepEqual(hdr, expected) {
+			t.Fatalf("WAV header differs:\n\n%#v\n\n!=\n\n%#v\n", hdr, expected)
 		}
 		return
 	}
