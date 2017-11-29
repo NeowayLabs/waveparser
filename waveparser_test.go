@@ -31,7 +31,93 @@ func assertNoError(t *testing.T, err error) {
 	}
 }
 
+func assertError(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func newWaveFloat(data []byte) Wav {
+	var wav Wav
+	wav.Header.RIFFChunkFmt.AudioFormat = WaveFormatIEEEFloat
+	wav.Header.RIFFChunkFmt.NumChannels = 1
+	wav.Data = data
+	return wav
+}
+
+func TestFloatSamplesMustBeNormalized(t *testing.T) {
+
+	type tcase struct {
+		name    string
+		samples []float32
+		success bool
+	}
+
+	tcases := []tcase{
+		tcase{
+			name: "validValues",
+			samples: []float32{
+				-1.0,
+				-0.99,
+				0,
+				0.99,
+				1.0,
+			},
+			success: true,
+		},
+		tcase{
+			name:    "firstBellowRange",
+			samples: []float32{-1.01, -0.99, 0},
+			success: false,
+		},
+		tcase{
+			name:    "secondBellowRange",
+			samples: []float32{-0.99, -1.01, 0},
+			success: false,
+		},
+		tcase{
+			name:    "lastBellowRange",
+			samples: []float32{-1.00, -0.99, -1.01},
+			success: false,
+		},
+		tcase{
+			name:    "firstAboveRange",
+			samples: []float32{1.01, 0.99, 0},
+			success: false,
+		},
+		tcase{
+			name:    "secondAboveRange",
+			samples: []float32{0.99, 1.01, 0},
+			success: false,
+		},
+		tcase{
+			name:    "lastAboveRange",
+			samples: []float32{1.00, 0.99, 1.01},
+			success: false,
+		},
+	}
+
+	for _, tcase := range tcases {
+		t.Run(tcase.name, func(t *testing.T) {
+			data := &bytes.Buffer{}
+			err := binary.Write(data, binary.LittleEndian, tcase.samples)
+			assertNoError(t, err)
+			wav := newWaveFloat(data.Bytes())
+			_, err = wav.Float32LESamples()
+			if tcase.success {
+				assertNoError(t, err)
+			} else {
+				assertError(t, err)
+			}
+		})
+	}
+}
+
 func testParseWAV(t *testing.T, filename string) {
+
+	t.Skip()
+
 	r, err := os.Open(filename)
 	assertNoError(t, err)
 
