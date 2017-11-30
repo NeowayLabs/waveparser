@@ -20,7 +20,7 @@ type (
 	}
 
 	Wav struct {
-		Header *WavHeader
+		Header WavHeader
 		Data   []byte
 	}
 
@@ -86,6 +86,10 @@ func (w *Wav) Int16LESamples() ([]int16, error) {
 
 func (w *Wav) Float32LESamples() ([]float32, error) {
 	// TODO: validate using header
+
+	const maxval float32 = 1.0
+	const minval float32 = -1.0
+
 	audio := []float32{}
 	reader := bytes.NewBuffer(w.Data)
 	var err error
@@ -94,6 +98,12 @@ func (w *Wav) Float32LESamples() ([]float32, error) {
 		var sample float32
 		err = binary.Read(reader, binary.LittleEndian, &sample)
 		if err == nil {
+			if sample < minval || sample > maxval {
+				return nil, fmt.Errorf(
+					"sample[%f] is outside the valid value range for a PCM float",
+					sample,
+				)
+			}
 			audio = append(audio, sample)
 		}
 	}
@@ -149,10 +159,10 @@ func isValidWavFormat(fmt uint16) bool {
 	return false
 }
 
-func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
+func parseHeader(r io.ReadSeeker) (WavHeader, error) {
 	riffhdr, err := parseRIFFHeader(r)
 	if err != nil {
-		return nil, err
+		return WavHeader{}, err
 	}
 
 	// FMT chunk
@@ -161,30 +171,31 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 
 	err = binary.Read(r, binary.LittleEndian, &chunk)
 	if err != nil {
-		return nil, err
+		return WavHeader{}, err
 	}
+
 	if string(chunk[:]) != "fmt " {
-		return nil, fmt.Errorf("Unexpected chunk type: %s", string(chunk[:]))
+		return WavHeader{}, fmt.Errorf("Unexpected chunk type: %s", string(chunk[:]))
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &chunkFmt)
 	if err != nil {
-		return nil, err
+		return WavHeader{}, err
 	}
 
 	if !isValidWavFormat(chunkFmt.AudioFormat) {
-		return nil, fmt.Errorf("Isn't an audio format: format[%d]", chunkFmt.AudioFormat)
+		return WavHeader{}, fmt.Errorf("Isn't an audio format: format[%d]", chunkFmt.AudioFormat)
 	}
 
 	if chunkFmt.LengthOfHeader != 16 {
 		var extraparams uint16
 		// Get extra params size
 		if err = binary.Read(r, binary.LittleEndian, &extraparams); err != nil {
-			return nil, fmt.Errorf("error getting extra fmt params: %s", err)
+			return WavHeader{}, fmt.Errorf("error getting extra fmt params: %s", err)
 		}
 		// Skip
 		if _, err = r.Seek(int64(extraparams), os.SEEK_CUR); err != nil {
-			return nil, fmt.Errorf("error skipping extra params: %s", err)
+			return WavHeader{}, fmt.Errorf("error skipping extra params: %s", err)
 		}
 	}
 
@@ -194,24 +205,24 @@ func parseHeader(r io.ReadSeeker) (*WavHeader, error) {
 		// Read chunkID
 		err = binary.Read(r, binary.BigEndian, &chunk)
 		if err != nil {
-			return nil, fmt.Errorf("Expected data chunkid: %s", err)
+			return WavHeader{}, fmt.Errorf("Expected data chunkid: %s", err)
 		}
 
 		err = binary.Read(r, binary.LittleEndian, &chunkSize)
 		if err != nil {
-			return nil, fmt.Errorf("Expected data chunkSize: %s", err)
+			return WavHeader{}, fmt.Errorf("Expected data chunkSize: %s", err)
 		}
 
 		// ignores LIST chunkIDs (unused for now)
 		if string(chunk[:]) != "data" {
 			if _, err = r.Seek(int64(chunkSize), os.SEEK_CUR); err != nil {
-				return nil, err
+				return WavHeader{}, err
 			}
 		}
 	}
 
 	pos, _ := r.Seek(0, os.SEEK_CUR)
-	return &WavHeader{
+	return WavHeader{
 		RIFFHdr:      *riffhdr,
 		RIFFChunkFmt: chunkFmt,
 
