@@ -37,6 +37,7 @@ func diffHeaders(
         if wroteHeader {
 			return
         }
+        wroteHeader = true
 		fmt.Printf("\n[%s] header differs from [%s] header\n", wavpath1, wavpath2)
         fmt.Printf("[%s] values will be on the left, [%s] on the right\n\n", wavpath1, wavpath2)
     }
@@ -58,8 +59,56 @@ func diffHeaders(
     chunksize2 := h2.RIFFHdr.ChunkSize
 
     if chunksize1 != chunksize2 {
-		writeDiff("RIFF ChunkSize Differs: [%d] != [%d]", chunksize1, chunksize2)
+		writeDiff("ChunkSize: [%d] != [%d]", chunksize1, chunksize2)
 	}
+
+    ft1 := h1.RIFFHdr.FileType
+    ft2 := h2.RIFFHdr.FileType
+
+    for i, b := range ft1 {
+        if ft2[i] != b {
+            writeDiff("FileType Byte[%d] differs: [%x] != [%x]", b, ft2[i])
+ 		}
+    }
+
+    cf1 := h1.RIFFChunkFmt
+    cf2 := h2.RIFFChunkFmt
+
+    if cf1.LengthOfHeader != cf2.LengthOfHeader {
+        writeDiff("Length Of Header: [%d] != [%d]", cf1.LengthOfHeader, cf2.LengthOfHeader)
+    }
+
+    if cf1.AudioFormat != cf2.AudioFormat {
+		writeDiff("Audio Format: [%d] != [%d]", cf1.AudioFormat, cf2.AudioFormat)
+    }
+
+	if cf1.NumChannels != cf2.NumChannels {
+		writeDiff("Number Of Channels: [%d] != [%d]", cf1.NumChannels, cf2.NumChannels)
+	}
+
+	if cf1.SampleRate != cf2.SampleRate {
+		writeDiff("Samplerate: [%d] != [%d]", cf1.SampleRate, cf2.SampleRate)
+	}
+
+    if cf1.BytesPerSec != cf2.BytesPerSec {
+		writeDiff("Bytes Per Sec: [%d] != [%d]", cf1.BytesPerSec, cf2.BytesPerSec)
+	}
+
+	if cf1.BytesPerBloc != cf2.BytesPerBloc {
+		writeDiff("Bytes Per Sec: [%d] != [%d]", cf1.BytesPerBloc, cf2.BytesPerBloc)
+	}
+
+	if cf1.BitsPerSample != cf2.BitsPerSample {
+		writeDiff("Bits Per Sample: [%d] != [%d]", cf1.BitsPerSample, cf2.BitsPerSample)
+	}
+
+	if h1.FirstSamplePos != h2.FirstSamplePos {
+		writeDiff("First Sample Position: [%d] != [%d]", h1.FirstSamplePos, h2.FirstSamplePos)
+    }
+
+	if h1.DataBlockSize != h2.DataBlockSize {
+		writeDiff("Data Block Size: [%d] != [%d]", h1.DataBlockSize, h2.DataBlockSize)
+    }
 
     return wroteHeader
 }
